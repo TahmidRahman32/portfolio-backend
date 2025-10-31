@@ -1,0 +1,159 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         Int        @id @default(autoincrement())
+  first_name String
+  last_name  String?
+  email      String   @unique
+  password   String?
+  role       Role       @default(USER)
+  phone      String?
+  picture    String?
+  status     UserStatus @default(ACTIVE)
+  isVerified Boolean    @default(false)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+   resumes   Resume[]
+
+  @@map("users")
+}
+
+model Resume {
+  id          String   @id @default(cuid())
+  title       String
+  template    String   @default("modern")
+  
+  // Personal Information
+  fullName    String
+  email       String
+  phone       String
+  address     String?
+  linkedin    String?
+  github      String?
+  website     String?
+  
+  // Professional Summary
+  summary     String?
+  
+  // File storage
+  pdfData     Bytes?
+  fileName    String?
+  fileSize    Int?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  lastSavedAt DateTime @default(now())
+  
+  // Relations - FIXED: Use 'user' not 'author'
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  education      Education[]
+  workExperience WorkExperience[]
+  skills         Skill[]
+  projects       Project[]
+}
+
+model Education {
+  id           String  @id @default(cuid())
+  institution  String
+  degree       String
+  fieldOfStudy String
+  startDate    String
+  endDate      String?
+  current      Boolean @default(false)
+  description  String?
+  grade        String?
+
+  resumeId String
+  resume   Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("education")
+}
+
+model WorkExperience {
+  id          String  @id @default(cuid())
+  company     String
+  position    String
+  startDate   String
+  endDate     String?
+  current     Boolean @default(false)
+  description String?
+
+  resumeId String
+  resume   Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("work_experience")
+}
+
+model Skill {
+  id       String  @id @default(cuid())
+  name     String
+  level    String? // beginner, intermediate, advanced, expert
+  category String? // technical, soft, language, etc.
+
+  resumeId String
+  resume   Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("skills")
+}
+
+model Project {
+  id           String   @id @default(cuid())
+  name         String
+  description  String
+  startDate    String?
+  endDate      String?
+  current      Boolean? @default(false)
+  url          String?
+  technologies String[] // Array of technologies used
+
+  resumeId String
+  resume   Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("projects")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BLOCK
+}
+
+
+// ddddddddddddddddddddd
+
+
+
