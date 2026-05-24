@@ -22,7 +22,7 @@ const getAllUsers = async (req, res) => {
 };
 const getSingleUser = async (req, res) => {
     try {
-        const userId = Number(req.params.id);
+        const userId = req.params.id;
         const result = await user_service_1.UserService.getSingleUser(userId);
         res.status(200).json(result);
     }
@@ -32,7 +32,7 @@ const getSingleUser = async (req, res) => {
 };
 const updateUser = async (req, res) => {
     try {
-        const result = await user_service_1.UserService.updateUser(Number(req.params.id), req.body);
+        const result = await user_service_1.UserService.updateUser(req.params.id, req.body);
         res.status(201).json(result);
     }
     catch (error) {
@@ -41,7 +41,7 @@ const updateUser = async (req, res) => {
 };
 const deleteUser = async (req, res) => {
     try {
-        const result = await user_service_1.UserService.deleteUser(Number(req.params.id));
+        const result = await user_service_1.UserService.deleteUser(req.params.id);
         res.status(201).json(result);
     }
     catch (error) {

@@ -9,7 +9,7 @@ const auth_controller_1 = require("./auth.controller");
 const router = express_1.default.Router();
 // router.get("/", UserController.getAllUsers);
 // router.get("/:id", UserController.getSingleUser);
-router.post("/", auth_controller_1.authController.loginWithEmail);
+router.post("/login", auth_controller_1.authController.loginWithEmail);
 router.post("/google", auth_controller_1.authController.googleLogin);
 // router.patch("/:id", UserController.updateUser);
 // router.delete("/:id", UserController.deleteUser);

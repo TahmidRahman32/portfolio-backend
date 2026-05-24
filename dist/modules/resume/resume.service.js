@@ -1,368 +1,254 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resumeService = exports.ResumeService = void 0;
-// services/resume.service.ts
+exports.resumeService = void 0;
+exports.createResumeService = createResumeService;
+exports.getResumeService = getResumeService;
+exports.updateResumeService = updateResumeService;
+exports.deleteResumeService = deleteResumeService;
+exports.formatResumeResponse = formatResumeResponse;
+exports.safeParseJSON = safeParseJSON;
+exports.resumeExists = resumeExists;
 const client_1 = require("@prisma/client");
 const prisma = new client_1.PrismaClient();
-class ResumeService {
-    async createResume(data) {
-        try {
-            const resume = await prisma.resume.create({
-                data: {
-                    title: data.title,
-                    template: data.template || "modern",
-                    // Personal info fields
-                    fullName: data.fullName,
-                    email: data.email,
-                    phone: data.phone,
-                    address: data.address,
-                    linkedin: data.linkedin,
-                    github: data.github,
-                    website: data.website,
-                    summary: data.summary,
-                    userId: data.userId,
-                    // Create related records
-                    education: {
-                        create: data.education.map((edu) => ({
-                            institution: edu.institution,
-                            degree: edu.degree,
-                            fieldOfStudy: edu.fieldOfStudy,
-                            startDate: edu.startDate,
-                            endDate: edu.endDate,
-                            description: edu.description,
-                            grade: edu.grade, // Using grade field from Prisma schema
-                        })),
-                    },
-                    workExperience: {
-                        create: data.workExperience.map((exp) => ({
-                            company: exp.company,
-                            position: exp.position,
-                            startDate: exp.startDate,
-                            endDate: exp.endDate,
-                            current: exp.current,
-                            description: exp.description,
-                        })),
-                    },
-                    skills: {
-                        create: data.skills.map((skill) => ({
-                            name: skill.name,
-                            level: skill.level,
-                            category: skill.category,
-                        })),
-                    },
-                    projects: {
-                        create: data.projects.map((project) => ({
-                            name: project.name,
-                            description: project.description,
-                            startDate: project.startDate,
-                            endDate: project.endDate,
-                            current: project.current,
-                            url: project.url,
-                            technologies: project.technologies,
-                        })),
-                    },
-                },
-                include: {
-                    education: true,
-                    workExperience: true,
-                    skills: true,
-                    projects: true,
-                },
-            });
-            return this.mapToResponse(resume);
-        }
-        catch (error) {
-            console.error("Create resume error:", error);
-            throw new Error(`Failed to create resume: ${error instanceof Error ? error.message : "Unknown error"}`);
-        }
+// ─── CREATE Resume Service ────────────────────────────────────────────────────
+/**
+ * Create a complete resume with all sections
+ * Validates that resume doesn't already exist
+ */
+async function createResumeService(userId, payload) {
+    // Validate required fields
+    if (!payload.summary || payload.summary.trim().length === 0) {
+        throw new Error("Summary is required");
     }
-    async getResumeById(id) {
-        try {
-            const resume = await prisma.resume.findUnique({
-                where: { id },
-                include: {
-                    education: true,
-                    workExperience: true,
-                    skills: true,
-                    projects: true,
-                },
-            });
-            return resume ? this.mapToResponse(resume) : null;
-        }
-        catch (error) {
-            console.error("Get resume error:", error);
-            throw new Error(`Failed to get resume: ${error instanceof Error ? error.message : "Unknown error"}`);
-        }
+    if (!payload.personalInfo) {
+        throw new Error("Personal info is required");
     }
-    async getUserResumes(userId) {
-        try {
-            const resumes = await prisma.resume.findMany({
-                where: { userId },
-                include: {
-                    education: true,
-                    workExperience: true,
-                    skills: true,
-                    projects: true,
-                },
-                orderBy: { updatedAt: "desc" },
-            });
-            return resumes.map((resume) => this.mapToResponse(resume));
-        }
-        catch (error) {
-            console.error("Get user resumes error:", error);
-            throw new Error(`Failed to get user resumes: ${error instanceof Error ? error.message : "Unknown error"}`);
-        }
+    // Check if resume already exists
+    const existing = await prisma.resume.findUnique({
+        where: { userId },
+    });
+    if (existing) {
+        throw new Error("Resume already exists. Use update or delete first.");
     }
-    async getAllResumes() {
-        try {
-            const resumes = await prisma.resume.findMany({
-                include: {
-                    education: true,
-                    workExperience: true,
-                    skills: true,
-                    projects: true,
-                    user: {
-                        select: {
-                            id: true,
-                            first_name: true,
-                            last_name: true,
-                            email: true,
-                        },
-                    },
-                },
-                orderBy: { updatedAt: "desc" },
-            });
-            return resumes.map((resume) => this.mapToResponse(resume));
-        }
-        catch (error) {
-            console.error("Get all resumes error:", error);
-            throw new Error(`Failed to get resumes: ${error instanceof Error ? error.message : "Unknown error"}`);
-        }
+    // Create resume with all related data
+    const resume = await prisma.resume.create({
+        data: {
+            userId,
+            summary: payload.summary,
+            personalInfo: {
+                create: payload.personalInfo,
+            },
+            education: payload.education?.length
+                ? {
+                    create: payload.education.map(({ id, ...rest }) => rest),
+                }
+                : undefined,
+            workExperience: payload.workExperience?.length
+                ? {
+                    create: payload.workExperience.map(({ id, ...rest }) => rest),
+                }
+                : undefined,
+            skills: payload.skills?.length
+                ? {
+                    create: payload.skills.map(({ id, ...rest }) => rest),
+                }
+                : undefined,
+            projects: payload.projects?.length
+                ? {
+                    create: payload.projects.map(({ id, ...rest }) => ({
+                        ...rest,
+                        technologies: JSON.stringify(rest.technologies),
+                    })),
+                }
+                : undefined,
+            certifications: payload.certifications?.length
+                ? {
+                    create: payload.certifications.map(({ id, ...rest }) => rest),
+                }
+                : undefined,
+        },
+        include: {
+            personalInfo: true,
+            education: true,
+            workExperience: true,
+            skills: true,
+            projects: true,
+            certifications: true,
+        },
+    });
+    return formatResumeResponse(resume);
+}
+// ─── GET Resume Service ──────────────────────────────────────────────────────
+/**
+ * Fetch complete resume for a user
+ * Returns null if resume doesn't exist
+ */
+async function getResumeService(userId) {
+    const resume = await prisma.resume.findUnique({
+        where: { userId },
+        include: {
+            personalInfo: true,
+            education: { orderBy: { startDate: "desc" } },
+            workExperience: { orderBy: { startDate: "desc" } },
+            skills: { orderBy: { category: "asc" } },
+            projects: { orderBy: { createdAt: "desc" } },
+            certifications: { orderBy: { issueDate: "desc" } },
+        },
+    });
+    if (!resume) {
+        return null;
     }
-    async updateResume(data) {
-        try {
-            // First, delete all related records and recreate them
-            await prisma.$transaction([
-                prisma.education.deleteMany({ where: { resumeId: data.id } }),
-                prisma.workExperience.deleteMany({ where: { resumeId: data.id } }),
-                prisma.skill.deleteMany({ where: { resumeId: data.id } }),
-                prisma.project.deleteMany({ where: { resumeId: data.id } }),
-            ]);
-            const resume = await prisma.resume.update({
-                where: { id: data.id },
-                data: {
-                    title: data.title,
-                    template: data.template,
-                    fullName: data.fullName,
-                    email: data.email,
-                    phone: data.phone,
-                    address: data.address,
-                    linkedin: data.linkedin,
-                    github: data.github,
-                    website: data.website,
-                    summary: data.summary,
-                    lastSavedAt: new Date(),
-                    // Recreate related records
-                    education: {
-                        create: data.education?.map((edu) => ({
-                            institution: edu.institution,
-                            degree: edu.degree,
-                            fieldOfStudy: edu.fieldOfStudy,
-                            startDate: edu.startDate,
-                            endDate: edu.endDate,
-                            description: edu.description,
-                            grade: edu.grade,
-                        })) || [],
-                    },
-                    workExperience: {
-                        create: data.workExperience?.map((exp) => ({
-                            company: exp.company,
-                            position: exp.position,
-                            startDate: exp.startDate,
-                            endDate: exp.endDate,
-                            current: exp.current,
-                            description: exp.description,
-                        })) || [],
-                    },
-                    skills: {
-                        create: data.skills?.map((skill) => ({
-                            name: skill.name,
-                            level: skill.level,
-                            category: skill.category,
-                        })) || [],
-                    },
-                    projects: {
-                        create: data.projects?.map((project) => ({
-                            name: project.name,
-                            description: project.description,
-                            startDate: project.startDate,
-                            endDate: project.endDate,
-                            current: project.current,
-                            url: project.url,
-                            technologies: project.technologies,
-                        })) || [],
-                    },
-                },
-                include: {
-                    education: true,
-                    workExperience: true,
-                    skills: true,
-                    projects: true,
-                },
-            });
-            return this.mapToResponse(resume);
-        }
-        catch (error) {
-            console.error("Update resume error:", error);
-            throw new Error(`Failed to update resume: ${error instanceof Error ? error.message : "Unknown error"}`);
-        }
+    return formatResumeResponse(resume);
+}
+// ─── UPDATE Resume Service ──────────────────────────────────────────────────
+/**
+ * Update resume (full or partial)
+ * Supports partial updates - only update sections provided
+ * Replaces entire arrays for education, work experience, skills, projects, certifications
+ */
+async function updateResumeService(userId, payload) {
+    // Get existing resume
+    const existingResume = await prisma.resume.findUnique({
+        where: { userId },
+    });
+    if (!existingResume) {
+        throw new Error("Resume not found");
     }
-    async deleteResume(id) {
-        try {
-            await prisma.resume.delete({
-                where: { id },
-            });
-            return true;
+    // Build update data dynamically
+    const updateData = {};
+    // Update summary if provided
+    if (payload.summary !== undefined) {
+        if (!payload.summary.trim()) {
+            throw new Error("Summary cannot be empty");
         }
-        catch (error) {
-            console.error("Delete resume error:", error);
-            throw new Error(`Failed to delete resume: ${error instanceof Error ? error.message : "Unknown error"}`);
-        }
+        updateData.summary = payload.summary;
     }
-    async duplicateResume(id, newTitle, userId) {
-        try {
-            const originalResume = await prisma.resume.findUnique({
-                where: { id },
-                include: {
-                    education: true,
-                    workExperience: true,
-                    skills: true,
-                    projects: true,
-                },
-            });
-            if (!originalResume) {
-                throw new Error("Resume not found");
-            }
-            const newResume = await prisma.resume.create({
-                data: {
-                    title: newTitle || `${originalResume.title} (Copy)`,
-                    template: originalResume.template,
-                    fullName: originalResume.fullName,
-                    email: originalResume.email,
-                    phone: originalResume.phone,
-                    address: originalResume.address,
-                    linkedin: originalResume.linkedin,
-                    github: originalResume.github,
-                    website: originalResume.website,
-                    summary: originalResume.summary,
-                    userId: userId || originalResume.userId,
-                    // Duplicate related records
-                    education: {
-                        create: originalResume.education.map((edu) => ({
-                            institution: edu.institution,
-                            degree: edu.degree,
-                            fieldOfStudy: edu.fieldOfStudy,
-                            startDate: edu.startDate,
-                            endDate: edu.endDate,
-                            description: edu.description,
-                            grade: edu.grade,
-                        })),
-                    },
-                    workExperience: {
-                        create: originalResume.workExperience.map((exp) => ({
-                            company: exp.company,
-                            position: exp.position,
-                            startDate: exp.startDate,
-                            endDate: exp.endDate,
-                            current: exp.current,
-                            description: exp.description,
-                        })),
-                    },
-                    skills: {
-                        create: originalResume.skills.map((skill) => ({
-                            name: skill.name,
-                            level: skill.level,
-                            category: skill.category,
-                        })),
-                    },
-                    projects: {
-                        create: originalResume.projects.map((project) => ({
-                            name: project.name,
-                            description: project.description,
-                            startDate: project.startDate,
-                            endDate: project.endDate,
-                            current: project.current,
-                            url: project.url,
-                            technologies: project.technologies,
-                        })),
-                    },
-                },
-                include: {
-                    education: true,
-                    workExperience: true,
-                    skills: true,
-                    projects: true,
-                },
-            });
-            return this.mapToResponse(newResume);
-        }
-        catch (error) {
-            console.error("Duplicate resume error:", error);
-            throw new Error(`Failed to duplicate resume: ${error instanceof Error ? error.message : "Unknown error"}`);
-        }
-    }
-    async savePdfData(id, pdfData, fileName, fileSize) {
-        try {
-            // Convert Node Buffer to Uint8Array because Prisma expects bytes as Uint8Array
-            const pdfUint8 = new Uint8Array(pdfData);
-            const resume = await prisma.resume.update({
-                where: { id },
-                data: {
-                    pdfData: pdfUint8,
-                    fileName,
-                    fileSize,
-                    lastSavedAt: new Date(),
-                },
-                include: {
-                    education: true,
-                    workExperience: true,
-                    skills: true,
-                    projects: true,
-                },
-            });
-            return this.mapToResponse(resume);
-        }
-        catch (error) {
-            console.error("Save PDF data error:", error);
-            throw new Error(`Failed to save PDF data: ${error instanceof Error ? error.message : "Unknown error"}`);
-        }
-    }
-    mapToResponse(resume) {
-        return {
-            id: resume.id,
-            title: resume.title,
-            template: resume.template,
-            fullName: resume.fullName,
-            email: resume.email,
-            phone: resume.phone,
-            address: resume.address,
-            linkedin: resume.linkedin,
-            github: resume.github,
-            website: resume.website,
-            summary: resume.summary,
-            education: resume.education,
-            workExperience: resume.workExperience,
-            skills: resume.skills,
-            projects: resume.projects,
-            pdfData: resume.pdfData,
-            fileName: resume.fileName,
-            fileSize: resume.fileSize,
-            createdAt: resume.createdAt,
-            updatedAt: resume.updatedAt,
-            lastSavedAt: resume.lastSavedAt,
-            userId: resume.userId,
+    // Update personalInfo if provided
+    if (payload.personalInfo) {
+        updateData.personalInfo = {
+            update: payload.personalInfo,
         };
     }
+    // Replace education (delete old, create new)
+    if (payload.education !== undefined) {
+        updateData.education = {
+            deleteMany: {},
+            create: payload.education.map(({ id, ...rest }) => rest),
+        };
+    }
+    // Replace workExperience (delete old, create new)
+    if (payload.workExperience !== undefined) {
+        updateData.workExperience = {
+            deleteMany: {},
+            create: payload.workExperience.map(({ id, ...rest }) => rest),
+        };
+    }
+    // Replace skills (delete old, create new)
+    if (payload.skills !== undefined) {
+        updateData.skills = {
+            deleteMany: {},
+            create: payload.skills.map(({ id, ...rest }) => rest),
+        };
+    }
+    // Replace projects (delete old, create new)
+    if (payload.projects !== undefined) {
+        updateData.projects = {
+            deleteMany: {},
+            create: payload.projects.map(({ id, ...rest }) => ({
+                ...rest,
+                technologies: JSON.stringify(rest.technologies),
+            })),
+        };
+    }
+    // Replace certifications (delete old, create new)
+    if (payload.certifications !== undefined) {
+        updateData.certifications = {
+            deleteMany: {},
+            create: payload.certifications.map(({ id, ...rest }) => rest),
+        };
+    }
+    const resume = await prisma.resume.update({
+        where: { userId },
+        data: updateData,
+        include: {
+            personalInfo: true,
+            education: { orderBy: { startDate: "desc" } },
+            workExperience: { orderBy: { startDate: "desc" } },
+            skills: { orderBy: { category: "asc" } },
+            projects: { orderBy: { createdAt: "desc" } },
+            certifications: { orderBy: { issueDate: "desc" } },
+        },
+    });
+    return formatResumeResponse(resume);
 }
-exports.ResumeService = ResumeService;
-exports.resumeService = new ResumeService();
+// ─── DELETE Resume Service ──────────────────────────────────────────────────
+/**
+ * Delete entire resume and all related sections
+ * Cascade delete handles all related records automatically
+ */
+async function deleteResumeService(userId) {
+    // Check if resume exists
+    const existingResume = await prisma.resume.findUnique({
+        where: { userId },
+    });
+    if (!existingResume) {
+        throw new Error("Resume not found");
+    }
+    // Delete entire resume (cascade delete handles all related records)
+    await prisma.resume.delete({
+        where: { userId },
+    });
+    return { success: true };
+}
+// ─── Helper Functions ─────────────────────────────────────────────────────────
+/**
+ * Format database response to match frontend data structure
+ * Parses JSON strings back to arrays
+ */
+function formatResumeResponse(resume) {
+    return {
+        id: resume.id,
+        userId: resume.userId,
+        summary: resume.summary,
+        personalInfo: resume.personalInfo || {},
+        education: resume.education || [],
+        workExperience: resume.workExperience || [],
+        skills: resume.skills || [],
+        projects: (resume.projects || []).map((p) => ({
+            ...p,
+            technologies: safeParseJSON(p.technologies, []),
+        })),
+        certifications: resume.certifications || [],
+        createdAt: resume.createdAt,
+        updatedAt: resume.updatedAt,
+    };
+}
+/**
+ * Safely parse JSON string, return default value on failure
+ */
+function safeParseJSON(json, defaultValue = []) {
+    if (!json)
+        return defaultValue;
+    try {
+        return JSON.parse(json);
+    }
+    catch {
+        return defaultValue;
+    }
+}
+/**
+ * Get resume existence check (useful for middleware or other services)
+ */
+async function resumeExists(userId) {
+    const resume = await prisma.resume.findUnique({
+        where: { userId },
+        select: { id: true },
+    });
+    return !!resume;
+}
+exports.resumeService = {
+    createResumeService,
+    getResumeService,
+    updateResumeService,
+    deleteResumeService,
+};

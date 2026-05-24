@@ -6,9 +6,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const compression_1 = __importDefault(require("compression"));
 const cors_1 = __importDefault(require("cors"));
 const express_1 = __importDefault(require("express"));
-const user_routes_1 = require("./modules/user/user.routes");
-const resume_route_1 = require("./modules/resume/resume.route");
-const auth_route_1 = require("./modules/auth/auth.route");
+const globalErrorHandler_1 = __importDefault(require("./middlewares/globalErrorHandler"));
+const notFound_1 = __importDefault(require("./middlewares/notFound"));
+const routes_1 = __importDefault(require("./routes"));
 // import { authMiddleware } from "./middlewares/auth.middleware";
 const app = (0, express_1.default)();
 // Middleware
@@ -19,9 +19,10 @@ app.use((0, cors_1.default)({
     origin: "http://localhost:3000",
     credentials: true,
 }));
-app.use("/api/v1/users", user_routes_1.userRouter);
-app.use("/api/v1/resumes", resume_route_1.resumeRoutes);
-app.use("/api/v1/auth", auth_route_1.authRouter);
+// app.use("/api/v1/users", userRouter);
+// app.use("/api/v1/resumes", resumeRoutes);
+// app.use("/api/v1/auth", authRouter);
+app.use("/api/v1", routes_1.default);
 // Default route for testing
 app.get("/", (_req, res) => {
     res.send("API is running");
@@ -33,4 +34,6 @@ app.use((req, res, next) => {
         message: "Route Not Found",
     });
 });
+app.use(globalErrorHandler_1.default);
+app.use(notFound_1.default);
 exports.default = app;
