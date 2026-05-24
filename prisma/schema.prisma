@@ -14,131 +14,282 @@ datasource db {
 }
 
 model User {
-  id         Int        @id @default(autoincrement())
+id        String   @id @default(cuid())
   first_name String
   last_name  String?
   email      String   @unique
   password   String?
-  role       Role       @default(USER)
+  role       Role       @default(ADMIN)
   phone      String?
   picture    String?
   status     UserStatus @default(ACTIVE)
   isVerified Boolean    @default(false)
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
-   resumes   Resume[]
+   resume Resume?
 
   @@map("users")
 }
 
 model Resume {
-  id          String   @id @default(cuid())
-  title       String
-  template    String   @default("modern")
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  summary   String   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  personalInfo    PersonalInfo?
+  education       Education[]
+  workExperience  WorkExperience[]
+  skills          Skill[]
+  projects        Project[]
+  certifications  Certification[]
+
+  @@index([userId])
+  @@map("resumes")
+}
+
+model PersonalInfo {
+  id        String   @id @default(cuid())
+  resumeId  String   @unique
   
-  // Personal Information
-  fullName    String
-  email       String
-  phone       String
-  address     String?
-  linkedin    String?
-  github      String?
-  website     String?
-  
-  // Professional Summary
-  summary     String?
-  
-  // File storage
-  pdfData     Bytes?
-  fileName    String?
-  fileSize    Int?
-  
-  // Timestamps
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  lastSavedAt DateTime @default(now())
-  
-  // Relations - FIXED: Use 'user' not 'author'
-  userId      Int
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  education      Education[]
-  workExperience WorkExperience[]
-  skills         Skill[]
-  projects       Project[]
+  fullName  String
+  email     String
+  phone     String
+  address   String   @db.Text
+  linkedin  String?
+  github    String?
+  website   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relation
+  resume Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+  @@index([resumeId])
+  @@map("personal_infos")
 }
 
 model Education {
-  id           String  @id @default(cuid())
+  id           String   @id @default(cuid())
+  resumeId     String
+  
   institution  String
   degree       String
   fieldOfStudy String
-  startDate    String
-  endDate      String?
-  current      Boolean @default(false)
-  description  String?
-  grade        String?
+  startDate    String   // YYYY-MM format
+  endDate      String   // YYYY-MM format
+  description  String?  @db.Text
 
-  resumeId String
-  resume   Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // Relation
+  resume Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
 
+  @@index([resumeId])
   @@map("education")
 }
 
+
 model WorkExperience {
-  id          String  @id @default(cuid())
+  id          String   @id @default(cuid())
+  resumeId    String
+  
   company     String
   position    String
-  startDate   String
-  endDate     String?
-  current     Boolean @default(false)
-  description String?
+  description String   @db.Text
+  startDate   String   // YYYY-MM format
+  endDate     String?  // YYYY-MM format (nullable if current)
+  current     Boolean  @default(false)
 
-  resumeId String
-  resume   Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // Relation
+  resume Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
 
-  @@map("work_experience")
+  @@index([resumeId])
+  @@map("work_experiences")
 }
 
 model Skill {
-  id       String  @id @default(cuid())
-  name     String
-  level    String? // beginner, intermediate, advanced, expert
-  category String? // technical, soft, language, etc.
-
+  id       String @id @default(cuid())
   resumeId String
-  resume   Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  
+  name     String
+  level    Int    @default(1) // 1-5 proficiency
+  category String // e.g., "Languages", "Tools & Technologies", "Soft Skills"
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Relation
+  resume Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+  @@index([resumeId])
   @@map("skills")
 }
 
 model Project {
   id           String   @id @default(cuid())
+  resumeId     String
+  
   name         String
-  description  String
-  startDate    String?
-  endDate      String?
-  current      Boolean? @default(false)
-  url          String?
-  technologies String[] // Array of technologies used
+  description  String   @db.Text
+  technologies String   @db.Text // JSON array stored as text: ["React", "Node.js"]
+  link         String?
+  image        String?  // URL to project image
 
-  resumeId String
-  resume   Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // Relation
+  resume Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
 
+  @@index([resumeId])
   @@map("projects")
 }
+
+model Certification {
+  id           String   @id @default(cuid())
+  resumeId     String
+  
+  title        String
+  issuer       String
+  issueDate    String   // YYYY-MM format
+  expiryDate   String?  // YYYY-MM format
+  credentialId String?
+  credentialUrl String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relation
+  resume Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+  @@index([resumeId])
+  @@map("certifications")
+}
+
+
+// model Resume {
+//   id          String   @id @default(cuid())
+//   title       String
+//   template    String   @default("modern")
+  
+//   // Personal Information
+//   fullName    String
+//   email       String
+//   phone       String
+//   address     String?
+//   linkedin    String?
+//   github      String?
+//   website     String?
+  
+//   // Professional Summary
+//   summary     String?
+  
+//   // File storage
+//   pdfData     Bytes?
+//   fileName    String?
+//   fileSize    Int?
+  
+//   // Timestamps
+//   createdAt   DateTime @default(now())
+//   updatedAt   DateTime @updatedAt
+//   lastSavedAt DateTime @default(now())
+  
+//   // Relations - FIXED: Use 'user' not 'author'
+//   userId      Int
+//   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+//   education      Education[]
+//   workExperience WorkExperience[]
+//   skills         Skill[]
+//   projects       Project[]
+// }
+
+
+
+// model Education {
+//   id           String  @id @default(cuid())
+//   institution  String
+//   degree       String
+//   fieldOfStudy String
+//   startDate    String
+//   endDate      String?
+//   current      Boolean @default(false)
+//   description  String?
+//   grade        String?
+
+//   resumeId String
+//   resume   Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+
+//   @@map("education")
+// }
+
+// model WorkExperience {
+//   id          String  @id @default(cuid())
+//   company     String
+//   position    String
+//   startDate   String
+//   endDate     String?
+//   current     Boolean @default(false)
+//   description String?
+
+//   resumeId String
+//   resume   Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+
+//   @@map("work_experience")
+// }
+
+// model Skill {
+//   id       String  @id @default(cuid())
+//   name     String
+//   level    String? // beginner, intermediate, advanced, expert
+//   category String? // technical, soft, language, etc.
+
+//   resumeId String
+//   resume   Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+
+//   @@map("skills")
+// }
+
+// model Project {
+//   id           String   @id @default(cuid())
+//   name         String
+//   description  String
+//   startDate    String?
+//   endDate      String?
+//   current      Boolean? @default(false)
+//   url          String?
+//   technologies String[] // Array of technologies used
+
+//   resumeId String
+//   resume   Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+
+//   @@map("projects")
+// }
+
+
+
 
 enum Role {
   SUPER_ADMIN
@@ -152,8 +303,6 @@ enum UserStatus {
   BLOCK
 }
 
-
-// ddddddddddddddddddddd
 
 
 

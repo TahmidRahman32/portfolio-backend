@@ -1,9 +1,10 @@
 import compression from "compression";
 import cors from "cors";
 import express from "express";
-import { userRouter } from "./modules/user/user.routes";
-import { resumeRoutes } from "./modules/resume/resume.route";
 import { authRouter } from "./modules/auth/auth.route";
+import globalErrorHandler from "./middlewares/globalErrorHandler";
+import notFound from "./middlewares/notFound";
+import router from "./routes";
 // import { authMiddleware } from "./middlewares/auth.middleware";
 
 const app = express();
@@ -17,12 +18,14 @@ app.use(
    cors({
       origin: "http://localhost:3000",
       credentials: true,
-   })
+   }),
 );
 
-app.use("/api/v1/users", userRouter);
-app.use("/api/v1/resumes", resumeRoutes);
-app.use("/api/v1/auth", authRouter);
+
+// app.use("/api/v1/users", userRouter);
+// app.use("/api/v1/resumes", resumeRoutes);
+// app.use("/api/v1/auth", authRouter);
+app.use("/api/v1", router);
 
 // Default route for testing
 app.get("/", (_req, res) => {
@@ -36,5 +39,8 @@ app.use((req, res, next) => {
       message: "Route Not Found",
    });
 });
+app.use(globalErrorHandler);
+
+app.use(notFound);
 
 export default app;

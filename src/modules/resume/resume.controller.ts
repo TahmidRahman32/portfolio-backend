@@ -1,320 +1,216 @@
-// controllers/resume.controller.ts
 import { Request, Response } from "express";
-import { CreateResumeDto, UpdateResumeDto, mapFrontendToBackend } from "../../Type/resume";
-import { resumeService } from "./resume.service";
+import { createResumeService, deleteResumeService, getResumeService, updateResumeService } from "./resume.service";
+import { ResumePayload } from "./resume.constant";
 
-
-export class ResumeController {
-   async createResume(req: Request, res: Response) {
-      try {
-         if (!req.body || typeof req.body !== "object") {
-            return res.status(400).json({
-               success: false,
-               message: "Invalid request body",
-            });
-         }
-
-         // Support both direct DTO and frontend format
-         let createData: CreateResumeDto;
-
-         if (req.body.personalInfo) {
-            // Frontend format detected - convert to backend DTO
-            const { resumeData, title, userId, template } = req.body;
-
-            if (!resumeData || !title || !userId) {
-               return res.status(400).json({
-                  success: false,
-                  message: "resumeData, title, and userId are required for frontend format",
-               });
-            }
-
-            createData = mapFrontendToBackend(resumeData, title, userId, template);
-         } else {
-            // Direct DTO format
-            createData = req.body as CreateResumeDto;
-         }
-
-         // Validate required fields
-         if (!createData.title || !createData.fullName || !createData.email || !createData.phone) {
-            return res.status(400).json({
-               success: false,
-               message: "Title, full name, email, and phone are required",
-            });
-         }
-
-         if (!createData.userId) {
-            return res.status(400).json({
-               success: false,
-               message: "User ID is required",
-            });
-         }
-
-         const resume = await resumeService.createResume(createData);
-
-         return res.status(201).json({
-            success: true,
-            data: resume,
-            message: "Resume created successfully",
-         });
-      } catch (error) {
-         console.error("Create resume error:", error);
-         return res.status(500).json({
-            success: false,
-            message: error instanceof Error ? error.message : "Internal server error",
-         });
-      }
-   }
-
-   async createResumeFromFrontend(req: Request, res: Response) {
-      try {
-         const { resumeData, title, userId, template } = req.body;
-
-         if (!resumeData || !title || !userId) {
-            return res.status(400).json({
-               success: false,
-               message: "resumeData, title, and userId are required",
-            });
-         }
-
-         const createData = mapFrontendToBackend(resumeData, title, userId, template);
-
-         const resume = await resumeService.createResume(createData);
-
-         return res.status(201).json({
-            success: true,
-            data: resume,
-            message: "Resume created successfully from frontend data",
-         });
-      } catch (error) {
-         console.error("Create resume from frontend error:", error);
-         return res.status(500).json({
-            success: false,
-            message: error instanceof Error ? error.message : "Internal server error",
-         });
-      }
-   }
-
-   async getResume(req: Request, res: Response) {
-      try {
-         const { id } = req.params;
-
-         if (!id || typeof id !== "string") {
-            return res.status(400).json({
-               success: false,
-               message: "Valid resume ID is required",
-            });
-         }
-
-         const resume = await resumeService.getResumeById(id);
-
-         if (!resume) {
-            return res.status(404).json({
-               success: false,
-               message: "Resume not found",
-            });
-         }
-
-         return res.json({
-            success: true,
-            data: resume,
-         });
-      } catch (error) {
-         console.error("Get resume error:", error);
-         return res.status(500).json({
-            success: false,
-            message: error instanceof Error ? error.message : "Internal server error",
-         });
-      }
-   }
-
-   async getUserResumes(req: Request, res: Response) {
-      try {
-         const { userId } = req.params;
-
-         if (!userId || isNaN(parseInt(userId))) {
-            return res.status(400).json({
-               success: false,
-               message: "Valid user ID is required",
-            });
-         }
-
-         const resumes = await resumeService.getUserResumes(parseInt(userId));
-
-         return res.json({
-            success: true,
-            data: resumes,
-            count: resumes.length,
-         });
-      } catch (error) {
-         console.error("Get user resumes error:", error);
-         return res.status(500).json({
-            success: false,
-            message: error instanceof Error ? error.message : "Internal server error",
-         });
-      }
-   }
-
-   async getAllResumes(req: Request, res: Response) {
-      try {
-         const resumes = await resumeService.getAllResumes();
-
-         return res.json({
-            success: true,
-            data: resumes,
-            count: resumes.length,
-         });
-      } catch (error) {
-         console.error("Get all resumes error:", error);
-         return res.status(500).json({
-            success: false,
-            message: error instanceof Error ? error.message : "Internal server error",
-         });
-      }
-   }
-
-   async updateResume(req: Request, res: Response) {
-      try {
-         const { id } = req.params;
-
-         if (!id || typeof id !== "string") {
-            return res.status(400).json({
-               success: false,
-               message: "Valid resume ID is required",
-            });
-         }
-
-         if (!req.body || typeof req.body !== "object") {
-            return res.status(400).json({
-               success: false,
-               message: "Invalid request body",
-            });
-         }
-
-         let updateData: UpdateResumeDto;
-
-         if (req.body.personalInfo) {
-            // Frontend format detected - convert to backend DTO
-            const { resumeData, title, template } = req.body;
-
-            if (!resumeData || !title) {
-               return res.status(400).json({
-                  success: false,
-                  message: "resumeData and title are required for frontend format",
-               });
-            }
-
-            const createData = mapFrontendToBackend(
-               resumeData,
-               title,
-               0, // userId not needed for update
-               template
-            );
-
-            updateData = {
-               id,
-               ...createData,
-            };
-         } else {
-            // Direct DTO format
-            updateData = {
-               id,
-               ...req.body,
-            };
-         }
-
-         const resume = await resumeService.updateResume(updateData);
-
-         return res.json({
-            success: true,
-            data: resume,
-            message: "Resume updated successfully",
-         });
-      } catch (error) {
-         console.error("Update resume error:", error);
-
-         if (error instanceof Error && error.message.includes("not found")) {
-            return res.status(404).json({
-               success: false,
-               message: error.message,
-            });
-         }
-
-         return res.status(500).json({
-            success: false,
-            message: error instanceof Error ? error.message : "Internal server error",
-         });
-      }
-   }
-
-   async deleteResume(req: Request, res: Response) {
-      try {
-         const { id } = req.params;
-
-         if (!id || typeof id !== "string") {
-            return res.status(400).json({
-               success: false,
-               message: "Valid resume ID is required",
-            });
-         }
-
-         await resumeService.deleteResume(id);
-
-         return res.json({
-            success: true,
-            message: "Resume deleted successfully",
-         });
-      } catch (error) {
-         console.error("Delete resume error:", error);
-
-         if (error instanceof Error && error.message.includes("not found")) {
-            return res.status(404).json({
-               success: false,
-               message: error.message,
-            });
-         }
-
-         return res.status(500).json({
-            success: false,
-            message: error instanceof Error ? error.message : "Internal server error",
-         });
-      }
-   }
-
-   async duplicateResume(req: Request, res: Response) {
-      try {
-         const { id } = req.params;
-         const { title, userId } = req.body;
-
-         if (!id || typeof id !== "string") {
-            return res.status(400).json({
-               success: false,
-               message: "Valid resume ID is required",
-            });
-         }
-
-         const resume = await resumeService.duplicateResume(id, title, userId);
-
-         return res.status(201).json({
-            success: true,
-            data: resume,
-            message: "Resume duplicated successfully",
-         });
-      } catch (error) {
-         console.error("Duplicate resume error:", error);
-
-         if (error instanceof Error && error.message.includes("not found")) {
-            return res.status(404).json({
-               success: false,
-               message: error.message,
-            });
-         }
-
-         return res.status(500).json({
-            success: false,
-            message: error instanceof Error ? error.message : "Internal server error",
-         });
+declare global {
+   namespace Express {
+      interface Request {
+         userId?: string;
       }
    }
 }
 
-export const resumeController = new ResumeController();
+// ─── Error Response Helper ────────────────────────────────────────────────────
+
+/**
+ * Determine HTTP status code based on error message
+ */
+function getStatusCode(errorMessage: string): number {
+   if (errorMessage.includes("Unauthorized")) return 401;
+   if (errorMessage.includes("not found")) return 404;
+   if (errorMessage.includes("already exists")) return 409;
+   if (errorMessage.includes("required")) return 400;
+   if (errorMessage.includes("cannot be")) return 400;
+   return 500;
+}
+
+// ─── CREATE Resume Controller ─────────────────────────────────────────────────
+
+/**
+ * POST /api/v1/resume
+ * Create a complete resume with all sections
+ */
+async function createResume(req: Request, res: Response) {
+   try {
+      const userId = req.userId;
+
+      // Authenticate user
+      if (!userId) {
+         return res.status(401).json({
+            success: false,
+            message: "Unauthorized",
+         });
+      }
+
+      // Validate request body
+      const payload: ResumePayload = req.body;
+      if (!payload) {
+         return res.status(400).json({
+            success: false,
+            message: "Request body is required",
+         });
+      }
+
+      // Call service
+      const resume = await createResumeService(userId, payload);
+
+      return res.status(201).json({
+         success: true,
+         message: "Resume created successfully",
+         data: resume,
+      });
+   } catch (error) {
+      const message = (error as Error).message;
+      const statusCode = getStatusCode(message);
+
+      console.error("createResume error:", error);
+
+      return res.status(statusCode).json({
+         success: false,
+         message: message || "Failed to create resume",
+      });
+   }
+}
+
+// ─── GET Resume Controller ───────────────────────────────────────────────────
+
+/**
+ * GET /api/v1/resume
+ * Fetch the complete resume for authenticated user
+ */
+async function getResume(req: Request, res: Response) {
+   try {
+      const userId = req.userId;
+
+      // Authenticate user
+      if (!userId) {
+         return res.status(401).json({
+            success: false,
+            message: "Unauthorized",
+         });
+      }
+
+      // Call service
+      const resume = await getResumeService(userId);
+
+      // Handle not found
+      if (!resume) {
+         return res.status(404).json({
+            success: false,
+            message: "Resume not found. Create one first using POST /resume",
+         });
+      }
+
+      return res.status(200).json({
+         success: true,
+         message: "Resume fetched successfully",
+         data: resume,
+      });
+   } catch (error) {
+      const message = (error as Error).message;
+      const statusCode = getStatusCode(message);
+
+      console.error("getResume error:", error);
+
+      return res.status(statusCode).json({
+         success: false,
+         message: message || "Failed to fetch resume",
+      });
+   }
+}
+
+// ─── UPDATE Resume Controller ─────────────────────────────────────────────────
+
+/**
+ * PUT /api/v1/resume (or PATCH)
+ * Update entire resume with all sections
+ * Supports partial updates - only sends sections you want to update
+ */
+async function updateResume(req: Request, res: Response) {
+   try {
+      const userId = req.userId;
+
+      // Authenticate user
+      if (!userId) {
+         return res.status(401).json({
+            success: false,
+            message: "Unauthorized",
+         });
+      }
+
+      // Validate request body
+      const payload: Partial<ResumePayload> = req.body;
+      if (!payload || Object.keys(payload).length === 0) {
+         return res.status(400).json({
+            success: false,
+            message: "Request body with at least one field is required",
+         });
+      }
+
+      // Call service
+      const resume = await updateResumeService(userId, payload);
+
+      return res.status(200).json({
+         success: true,
+         message: "Resume updated successfully",
+         data: resume,
+      });
+   } catch (error) {
+      const message = (error as Error).message;
+      const statusCode = getStatusCode(message);
+
+      console.error("updateResume error:", error);
+
+      return res.status(statusCode).json({
+         success: false,
+         message: message || "Failed to update resume",
+      });
+   }
+}
+
+// ─── DELETE Resume Controller ─────────────────────────────────────────────────
+
+/**
+ * DELETE /api/v1/resume
+ * Delete entire resume and all related sections
+ * This is permanent and cannot be undone
+ */
+async function deleteResume(req: Request, res: Response) {
+   try {
+      const userId = req.userId;
+
+      // Authenticate user
+      if (!userId) {
+         return res.status(401).json({
+            success: false,
+            message: "Unauthorized",
+         });
+      }
+
+      // Call service
+      await deleteResumeService(userId);
+
+      return res.status(200).json({
+         success: true,
+         message: "Resume deleted permanently",
+         data: null,
+      });
+   } catch (error) {
+      const message = (error as Error).message;
+      const statusCode = getStatusCode(message);
+
+      console.error("deleteResume error:", error);
+
+      return res.status(statusCode).json({
+         success: false,
+         message: message || "Failed to delete resume",
+      });
+   }
+}
+
+export const resumeController = {
+   createResume,
+   getResume,
+   deleteResume,
+   updateResume,
+};

@@ -42,7 +42,7 @@ const getAllUsers = async () => {
    return result;
 };
 
-const getSingleUser = async (id: number) => {
+const getSingleUser = async (id: string) => {
    const result = await prisma.user.findUnique({
       where: {
          id,
@@ -61,7 +61,7 @@ const getSingleUser = async (id: number) => {
    });
    return result;
 };
-const updateUser = async (id: number, payload: Partial<User>) => {
+const updateUser = async (id: string, payload: Partial<User>) => {
    const result = await prisma.user.update({
       where: {
          id,
@@ -71,7 +71,7 @@ const updateUser = async (id: number, payload: Partial<User>) => {
    return result;
 };
 
-const deleteUser = async (id: number) => {
+const deleteUser = async (id: string) => {
    const result = await prisma.user.delete({
       where: {
          id,
